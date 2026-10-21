@@ -1,9 +1,6 @@
-import { useEffect, useReducer } from 'react';
 import { makeGroups, pruneResults, shuffle } from './engine';
 import type { Format, MatchResult, Player, Tournament } from './types';
 import { MAX_PLAYERS } from './types';
-
-const KEY = 'fc-tournament:v1';
 
 export const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -81,28 +78,4 @@ export function isTournament(x: unknown): x is Tournament {
   return !!t && typeof t === 'object' && typeof t.name === 'string' && Array.isArray(t.players)
     && ['single', 'double', 'league', 'groups'].includes(t.format) && typeof t.results === 'object'
     && Array.isArray(t.seeds) && Array.isArray(t.groups);
-}
-
-function load(): Tournament | null {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const t = JSON.parse(raw);
-    return isTournament(t) ? t : null;
-  } catch {
-    return null;
-  }
-}
-
-export function useTournament() {
-  const [t, dispatch] = useReducer(reducer, null, load);
-  useEffect(() => {
-    try {
-      if (t) localStorage.setItem(KEY, JSON.stringify(t));
-      else localStorage.removeItem(KEY);
-    } catch {
-      /* stockage indisponible (navigation privée) : l'appli fonctionne quand même */
-    }
-  }, [t]);
-  return [t, dispatch] as const;
 }

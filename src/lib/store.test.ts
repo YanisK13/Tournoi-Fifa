@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { readyQueue, resolve } from './engine';
-import { decodeTournament, encodeTournament } from './share';
 import { reducer } from './store';
 import type { Tournament } from './types';
 
@@ -52,21 +51,5 @@ describe('reducer', () => {
     let t = create(32);
     t = reducer(t, { type: 'addPlayer', name: 'Trop' })!;
     expect(t.players).toHaveLength(32);
-  });
-});
-
-describe('partage', () => {
-  it('encode puis décode le tournoi à l’identique', async () => {
-    let t = reducer(create(32, 'league'), { type: 'draw' })!;
-    for (const m of readyQueue(resolve(t)).slice(0, 200)) {
-      t = reducer(t, { type: 'setResult', id: m.id, result: { a: m.pa!, b: m.pb!, sa: 2, sb: 2, winner: null, method: 'normal', at: 1 } })!;
-    }
-    const code = await encodeTournament(t);
-    expect(code.length).toBeLessThan(12000);
-    expect(await decodeTournament(code)).toEqual(t);
-  });
-  it('un lien corrompu est rejeté', async () => {
-    expect(await decodeTournament('zNOPE!!')).toBeNull();
-    expect(await decodeTournament('j' + btoa('{"x":1}'))).toBeNull();
   });
 });

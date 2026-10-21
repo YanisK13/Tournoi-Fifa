@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { estimateMatches, formatDuration, formatError } from '../lib/engine';
 import type { Action } from '../lib/store';
 import type { Format, Tournament } from '../lib/types';
@@ -145,8 +145,9 @@ export function validateName(name: string, t: Tournament, exceptId?: string): st
   return null;
 }
 
-export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack }: {
+export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare, badge, shared = false }: {
   t: Tournament; dispatch: (a: Action) => void; onSettings: () => void; onMenu: () => void; onBack?: () => void;
+  onShare?: () => void; badge?: ReactNode; shared?: boolean;
 }) {
   const confirm = useConfirm();
   const [draft, setDraft] = useState('');
@@ -184,7 +185,7 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack }: {
     if (running) {
       const ok = await confirm({
         title: `Retirer ${name} ?`,
-        message: 'Le tournoi est en cours : retirer un joueur annule le tirage et efface tous les scores. Vous devrez relancer le tirage.',
+        message: `Le tournoi est en cours : retirer un joueur annule le tirage et efface tous les scores. Il faudra relancer le tirage.${shared ? ' Ce changement s’applique pour tous les participants.' : ''}`,
         confirm: 'Retirer et annuler le tirage', danger: true,
       });
       if (!ok) return;
@@ -203,8 +204,9 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack }: {
         {onBack && <button className="icon-btn" onClick={onBack} aria-label="Retour"><Icon name="back" /></button>}
         <div className="topbar-title stack">
           <h1>{running ? 'Joueurs' : t.name}</h1>
-          {!running && <small>{t.game} · {formatLabel(t.format)}</small>}
+          {!running && <small>{badge}{t.game} · {formatLabel(t.format)}</small>}
         </div>
+        {!running && onShare && <button className="icon-btn" onClick={onShare} aria-label="Partager"><Icon name="share" /></button>}
         {!running && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
         {!running && <button className="icon-btn" onClick={onMenu} aria-label="Plus d’actions"><Icon name="dots" /></button>}
       </header>
@@ -212,6 +214,9 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack }: {
       <div className="section-head">
         <h2>Joueurs <span className={`count ${n < MIN_PLAYERS ? 'warn' : ''}`}>{n}/{MAX_PLAYERS}</span></h2>
         {running && <p className="muted">Renommer un joueur ne change rien au tournoi.</p>}
+        {!running && shared && onShare && (
+          <button className="invite" onClick={onShare}><Icon name="share" size={18} />Envoie le lien sur WhatsApp : chacun pourra suivre et saisir les scores.</button>
+        )}
       </div>
 
       {n === 0 && <p className="empty">Aucun joueur pour l’instant. Ajoute au moins {MIN_PLAYERS} prénoms ou pseudos.</p>}
