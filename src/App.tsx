@@ -73,7 +73,7 @@ export default function App() {
 
   if (!t && !snap.id) {
     const dispatch = (a: Action) => {
-      if (a.type === 'create') void live.create(a).then((ok) => { if (!ok) toast(OFFLINE_CREATE_MSG); });
+      if (a.type === 'create') void live.create(a).then((ok) => { if (!ok) toast(`${OFFLINE_CREATE_MSG} ${live.lastError ?? ''}`); });
       else live.dispatch(a);
     };
     return creating ? <CreateScreen dispatch={dispatch} onCancel={() => setCreating(false)} /> : <Home onCreate={() => setCreating(true)} />;
@@ -129,7 +129,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
 
   const publish = async () => {
     const ok = await live.publish();
-    toast(ok ? 'Tournoi en ligne : partage le lien !' : 'Mise en ligne impossible pour l’instant. Vérifie ta connexion.');
+    toast(ok ? 'Tournoi en ligne : partage le lien !' : `Mise en ligne impossible. ${live.lastError ?? ''}`);
     return ok;
   };
 

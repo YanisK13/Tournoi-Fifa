@@ -96,6 +96,46 @@ export function redisStore(url: string, token: string): Store {
   };
 }
 
+/* ------------------------------------------------------------ stockage Redis classique (REDIS_URL, ex. « Redis » de Vercel Storage) */
+
+type TcpClient = {
+  hmGet(key: string, fields: string[]): Promise<(string | null)[]>;
+  eval(script: string, opts: { keys: string[]; arguments: string[] }): Promise<unknown>;
+};
+let tcpClient: Promise<TcpClient> | null = null;
+
+export function tcpRedisStore(url: string): Store {
+  const client = (): Promise<TcpClient> => {
+    if (!tcpClient) {
+      tcpClient = import('redis').then(async ({ createClient }) => {
+        const c = createClient({ url, socket: { connectTimeout: 5000 } });
+        c.on('error', () => { tcpClient = null; });
+        await c.connect();
+        return c as unknown as TcpClient;
+      });
+      tcpClient.catch(() => { tcpClient = null; });
+    }
+    return tcpClient;
+  };
+  const run = async (script: string, k: string, args: (string | number)[]) =>
+    (await client()).eval(script, { keys: [k], arguments: args.map(String) });
+  return {
+    async get(id) {
+      const [v, d] = await (await client()).hmGet(key(id), ['v', 'd']);
+      return v && d ? { v: Number(v), t: JSON.parse(d) } : null;
+    },
+    async create(id, data) {
+      return Number(await run(CREATE_LUA, key(id), [data, TTL_SECONDS])) === 1;
+    },
+    async cas(id, base, data) {
+      const res = (await run(CAS_LUA, key(id), [base, data, TTL_SECONDS])) as string[];
+      if (res[0] === 'ok') return { status: 'ok', v: Number(res[1]) };
+      if (res[0] === 'conflict') return { status: 'conflict', doc: { v: Number(res[1]), t: JSON.parse(res[2]) } };
+      return { status: 'missing' };
+    },
+  };
+}
+
 /* ------------------------------------------------------------ handler */
 
 let override: Store | null = null;
@@ -106,12 +146,23 @@ function env(): Record<string, string | undefined> {
   return (globalThis as unknown as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 }
 
-function getStore(): Store | null {
-  if (override) return override;
+/** Quel stockage est branché, d'après les variables d'environnement présentes. */
+function storageKind(): 'override' | 'upstash' | 'redis' | null {
+  if (override) return 'override';
   const e = env();
-  const url = e.KV_REST_API_URL ?? e.UPSTASH_REDIS_REST_URL;
-  const token = e.KV_REST_API_TOKEN ?? e.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? redisStore(url, token) : null;
+  if ((e.KV_REST_API_URL ?? e.UPSTASH_REDIS_REST_URL) && (e.KV_REST_API_TOKEN ?? e.UPSTASH_REDIS_REST_TOKEN)) return 'upstash';
+  if (e.REDIS_URL ?? e.KV_URL) return 'redis';
+  return null;
+}
+
+function getStore(): Store | null {
+  const e = env();
+  switch (storageKind()) {
+    case 'override': return override;
+    case 'upstash': return redisStore((e.KV_REST_API_URL ?? e.UPSTASH_REDIS_REST_URL)!, (e.KV_REST_API_TOKEN ?? e.UPSTASH_REDIS_REST_TOKEN)!);
+    case 'redis': return tcpRedisStore((e.REDIS_URL ?? e.KV_URL)!);
+    default: return null;
+  }
 }
 
 const json = (status: number, body?: unknown) =>
@@ -144,9 +195,23 @@ async function readBody(req: Request): Promise<Record<string, unknown> | null> {
 }
 
 export async function handle(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+
+  // Diagnostic : /api/tournament?health=1
+  if (req.method === 'GET' && url.searchParams.has('health')) {
+    const kind = storageKind();
+    const store = getStore();
+    if (!store) return json(503, { ok: false, storage: null, error: 'storage_not_configured' });
+    try {
+      await store.get('healthcheck');
+      return json(200, { ok: true, storage: kind });
+    } catch (e) {
+      return json(502, { ok: false, storage: kind, error: 'storage_error', detail: String((e as Error).message ?? e) });
+    }
+  }
+
   const store = getStore();
   if (!store) return json(503, { error: 'storage_not_configured' });
-  const url = new URL(req.url);
   const id = url.searchParams.get('id') ?? '';
 
   try {

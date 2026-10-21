@@ -19,6 +19,10 @@ export function httpApi(base = '/api/tournament', fetchFn: typeof fetch = (...a)
   const call = async (path: string, init?: RequestInit) => {
     const r = await fetchFn(base + path, { ...init, cache: 'no-store', headers: { 'Content-Type': 'application/json' } });
     if (r.status === 503) throw new NotConfiguredError('storage_not_configured');
+    if (r.status >= 500) {
+      const body = await r.json().catch(() => null) as { detail?: string; error?: string } | null;
+      throw new Error(`Erreur serveur ${r.status}${body?.detail ? ` : ${body.detail}` : body?.error ? ` : ${body.error}` : ''}`);
+    }
     return r;
   };
   const doc = (x: unknown): { v: number; t: Tournament } => {
@@ -92,6 +96,8 @@ export class LiveTournament {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private snap: Snapshot;
+  /** Raison du dernier échec de mise en ligne, affichée à l'utilisateur. */
+  lastError: string | null = null;
 
   constructor(private api: Api, private persist?: Persistence) {
     const p = persist?.load();
@@ -151,9 +157,15 @@ export class LiveTournament {
       this.local = null;
       this.pending = [];
       this.status = 'live';
+      this.lastError = null;
       this.emit();
       return true;
-    } catch {
+    } catch (e) {
+      this.lastError = e instanceof NotConfiguredError
+        ? 'Aucune base de données n’est reliée au projet Vercel (Storage → Connect, puis Redeploy).'
+        : e instanceof TypeError
+          ? 'Pas de connexion internet.'
+          : `Le serveur a refusé la mise en ligne. ${(e as Error).message}`;
       this.setStatus('local');
       return false;
     }
