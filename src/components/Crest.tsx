@@ -80,11 +80,11 @@ export function TeamPicker({ playerName, current, onPick, onClose }: {
     <Sheet open onClose={onClose} title={`Club de ${playerName}`}>
       <div className="team-picker">
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} maxLength={40}
-          placeholder="Rechercher un club (ex. Marseille)" aria-label="Nom du club" enterKeyHint="search" />
+          placeholder="Club ou sélection (ex. Marseille, PSG, Maroc)" aria-label="Nom du club" enterKeyHint="search" />
 
         {state === 'loading' && <p className="muted small center"><span className="spinner tiny" /> Recherche…</p>}
         {state === 'error' && <p className="hint">Recherche de logos indisponible pour l’instant. Tu peux quand même garder le nom tapé.</p>}
-        {hits && hits.length === 0 && state === 'idle' && <p className="hint">Aucun club trouvé. Essaie le nom complet ou en anglais (ex. « Bayern Munich »).</p>}
+        {hits && hits.length === 0 && state === 'idle' && <p className="hint">Aucun club trouvé dans les grands championnats. Essaie un autre nom, ou garde le nom tapé.</p>}
 
         <div className="team-results">
           {hits?.map((h) => (
@@ -101,7 +101,7 @@ export function TeamPicker({ playerName, current, onPick, onClose }: {
           )}
         </div>
 
-        {query.length < 2 && !current && <p className="muted small center">Tape au moins 2 lettres. Les logos viennent de TheSportsDB.</p>}
+        {query.length < 2 && !current && <p className="muted small center">Tape au moins 2 lettres : club ou sélection (ex. PSG, Real, Maroc).</p>}
 
         {current && (
           <div className="team-current">
