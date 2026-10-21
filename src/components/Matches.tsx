@@ -1,5 +1,6 @@
 import { matchTitle, playable, readyQueue, type RMatch } from '../lib/engine';
-import { useName, useT } from './ctx';
+import { Crest } from './Crest';
+import { useName, usePlayer, useT } from './ctx';
 import { Icon } from './ui';
 
 function methodTag(m: RMatch) {
@@ -11,13 +12,14 @@ function methodTag(m: RMatch) {
 export function MatchCard({ m, compact = false, caption }: { m: RMatch; compact?: boolean; caption?: string }) {
   const { openMatch } = useT();
   const name = useName();
+  const player = usePlayer();
   const clickable = m.state === 'ready' || m.state === 'done';
   const side = (id: typeof m.pa, score: number | undefined) => {
     const won = m.state === 'done' && m.winner === id;
     const lost = m.state === 'done' && m.winner !== null && m.winner !== id;
     return (
       <div className={`mc-side ${won ? 'won' : ''} ${lost ? 'lost' : ''} ${id ? '' : 'tbd'}`}>
-        <span className="mc-name">{name(id)}</span>
+        <span className="mc-name"><Crest team={player(id)?.team} size={compact ? 18 : 20} />{name(id)}</span>
         <span className="mc-score">{won && compact && m.result?.method !== 'normal' && <small className="method">{m.result?.method === 'pens' ? 'TAB' : 'a.p.'}</small>}{score ?? ''}</span>
       </div>
     );
@@ -41,6 +43,7 @@ export function MatchCard({ m, compact = false, caption }: { m: RMatch; compact?
 export function MatchesTab({ onChampion }: { onChampion: () => void }) {
   const { t, res, openMatch } = useT();
   const name = useName();
+  const player = usePlayer();
   const all = playable(res);
   const queue = readyQueue(res);
   const [next, ...later] = queue;
@@ -68,9 +71,14 @@ export function MatchesTab({ onChampion }: { onChampion: () => void }) {
         <section className="next-match">
           <p className="eyebrow">À la manette · {matchTitle(next, res, t.format)}</p>
           <div className="next-vs">
-            <span>{name(next.pa)}</span>
+            {[next.pa, next.pb].map((id, k) => (
+              <div key={k} className={`next-side ${k ? 'b' : 'a'}`}>
+                <Crest team={player(id)?.team} size={52} />
+                <span>{name(id)}</span>
+                {player(id)?.team && <small>{player(id)!.team!.name}</small>}
+              </div>
+            ))}
             <i>VS</i>
-            <span>{name(next.pb)}</span>
           </div>
           <button className="btn primary xl" onClick={() => openMatch(next.id)}><Icon name="play" />Saisir le score</button>
         </section>

@@ -24,6 +24,11 @@ export function useName() {
   };
 }
 
+export function usePlayer() {
+  const { t } = useT();
+  return (id: string | null | undefined) => (id && id !== BYE ? t.players.find((p) => p.id === id) : undefined);
+}
+
 export const FORMATS: { id: Format; label: string; desc: string }[] = [
   { id: 'single', label: 'Élimination directe', desc: 'Une défaite et c’est fini. Le plus rapide.' },
   { id: 'double', label: 'Double élimination', desc: 'Droit à une erreur : les perdants passent au repêchage.' },

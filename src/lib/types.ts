@@ -1,8 +1,15 @@
 export type Format = 'single' | 'double' | 'league' | 'groups';
 
+export interface Team {
+  name: string;
+  /** Logo du club (https), absent si on utilise l'écusson généré. */
+  badge?: string;
+}
+
 export interface Player {
   id: string;
   name: string;
+  team?: Team;
 }
 
 /** Where a match participant comes from. */

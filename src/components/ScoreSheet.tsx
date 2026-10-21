@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { impactOf, matchTitle, type RMatch } from '../lib/engine';
-import type { MatchResult, Method } from '../lib/types';
-import { useName, useT } from './ctx';
+import type { MatchResult, Method, Team } from '../lib/types';
+import { Crest } from './Crest';
+import { useName, usePlayer, useT } from './ctx';
 import { Icon, Sheet, useConfirm } from './ui';
 
-function ScoreInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+function ScoreInput({ label, team, value, onChange }: { label: string; team?: Team; value: number | null; onChange: (v: number | null) => void }) {
   return (
     <div className="score-input">
+      <Crest team={team} size={40} />
       <span className="score-player" title={label}>{label}</span>
       <div className="score-ctrl">
         <button type="button" className="score-btn" aria-label={`Retirer un but à ${label}`}
@@ -30,6 +32,7 @@ function ScoreInput({ label, value, onChange }: { label: string; value: number |
 export function ScoreSheet({ match, onClose }: { match: RMatch; onClose: () => void }) {
   const { t, res, dispatch } = useT();
   const name = useName();
+  const player = usePlayer();
   const confirm = useConfirm();
   const prev = match.state === 'done' ? match.result : undefined;
   const [sa, setSa] = useState<number | null>(prev?.sa ?? null);
@@ -88,9 +91,9 @@ export function ScoreSheet({ match, onClose }: { match: RMatch; onClose: () => v
     <Sheet open onClose={onClose} title={matchTitle(match, res, t.format)}>
       <div className="score-sheet">
         <div className="score-grid">
-          <ScoreInput label={name(pa)} value={sa} onChange={setSa} />
+          <ScoreInput label={name(pa)} team={player(pa)?.team} value={sa} onChange={setSa} />
           <span className="score-vs">VS</span>
-          <ScoreInput label={name(pb)} value={sb} onChange={setSb} />
+          <ScoreInput label={name(pb)} team={player(pb)?.team} value={sb} onChange={setSb} />
         </div>
 
         {isDraw && !match.knockout && <p className="note">Match nul : 1 point chacun.</p>}
@@ -104,7 +107,7 @@ export function ScoreSheet({ match, onClose }: { match: RMatch; onClose: () => v
             <div className="tie-pick" role="radiogroup" aria-label="Vainqueur">
               {[pa, pb].map((id) => (
                 <button type="button" key={id} role="radio" aria-checked={tieWinner === id} className={tieWinner === id ? 'on' : ''} onClick={() => setTieWinner(id)}>
-                  {tieWinner === id && <Icon name="trophy" size={18} />}{name(id)}
+                  {tieWinner === id ? <Icon name="trophy" size={18} /> : <Crest team={player(id)?.team} size={20} />}{name(id)}
                 </button>
               ))}
             </div>

@@ -3,6 +3,7 @@ import { estimateMatches, formatDuration, formatError } from '../lib/engine';
 import type { Action } from '../lib/store';
 import type { Format, Tournament } from '../lib/types';
 import { MAX_PLAYERS, MIN_PLAYERS, MIN_PLAYERS_GROUPS } from '../lib/types';
+import { Crest, TeamPicker } from './Crest';
 import { FORMATS, formatLabel } from './ctx';
 import { Icon, Logo, Stepper, useConfirm } from './ui';
 
@@ -155,6 +156,8 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [editErr, setEditErr] = useState<string | null>(null);
+  const [picking, setPicking] = useState<string | null>(null);
+  const pickingPlayer = t.players.find((p) => p.id === picking);
   const addRef = useRef<HTMLInputElement>(null);
   const running = t.status === 'running';
   const n = t.players.length;
@@ -225,6 +228,9 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
         {t.players.map((p, i) => (
           <li key={p.id} className="player-row">
             <span className="player-num">{i + 1}</span>
+            <button className={`crest-btn ${p.team ? '' : 'empty'}`} onClick={() => setPicking(p.id)} aria-label={p.team ? `Changer le club de ${p.name} (${p.team.name})` : `Choisir le club de ${p.name}`}>
+              {p.team ? <Crest team={p.team} size={34} /> : <Icon name="plus" size={18} />}
+            </button>
             {editing === p.id ? (
               <form className="player-edit" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
                 <input autoFocus value={editVal} maxLength={20} onChange={(e) => { setEditVal(e.target.value); setEditErr(null); }}
@@ -235,7 +241,10 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
               </form>
             ) : (
               <>
-                <button className="player-name" onClick={() => startEdit(p.id, p.name)} aria-label={`Renommer ${p.name}`}>{p.name}</button>
+                <button className="player-name" onClick={() => startEdit(p.id, p.name)} aria-label={`Renommer ${p.name}`}>
+                  {p.name}
+                  <small className={p.team ? '' : 'add-club'}>{p.team ? p.team.name : 'Choisir son club'}</small>
+                </button>
                 <button className="icon-btn" onClick={() => startEdit(p.id, p.name)} aria-label={`Modifier ${p.name}`}><Icon name="edit" size={18} /></button>
                 <button className="icon-btn danger" onClick={() => remove(p.id, p.name)} aria-label={`Supprimer ${p.name}`}><Icon name="trash" size={18} /></button>
               </>
@@ -261,6 +270,11 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
           </p>
           <button className="btn primary xl" onClick={draw} disabled={!!fmtErr}><Icon name="shuffle" />Lancer le tirage</button>
         </div>
+      )}
+      {pickingPlayer && (
+        <TeamPicker playerName={pickingPlayer.name} current={pickingPlayer.team}
+          onPick={(team) => { dispatch({ type: 'setTeam', id: pickingPlayer.id, team }); setPicking(null); }}
+          onClose={() => setPicking(null)} />
       )}
     </main>
   );

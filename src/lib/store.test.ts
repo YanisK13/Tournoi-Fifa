@@ -53,3 +53,24 @@ describe('reducer', () => {
     expect(t.players).toHaveLength(32);
   });
 });
+
+describe('clubs', () => {
+  it('choisir, changer et retirer le club d’un joueur', () => {
+    let t = create(4);
+    const id = t.players[0].id;
+    t = reducer(t, { type: 'setTeam', id, team: { name: 'Olympique de Marseille', badge: 'https://r2.thesportsdb.com/images/media/team/badge/om.png' } })!;
+    expect(t.players[0].team).toEqual({ name: 'Olympique de Marseille', badge: 'https://r2.thesportsdb.com/images/media/team/badge/om.png' });
+    // Un logo qui n'est pas en https est ignoré (écusson généré à la place).
+    t = reducer(t, { type: 'setTeam', id, team: { name: 'Mon club', badge: 'javascript:alert(1)' } })!;
+    expect(t.players[0].team).toEqual({ name: 'Mon club' });
+    t = reducer(t, { type: 'setTeam', id, team: null })!;
+    expect(t.players[0].team).toBeUndefined();
+    expect(t.players[0].name).toBe('Joueur 1');
+  });
+  it('changer de club pendant le tournoi ne touche pas aux scores', () => {
+    let t = reducer(create(4), { type: 'draw' })!;
+    t = reducer(t, { type: 'setTeam', id: t.players[1].id, team: { name: 'PSG' } })!;
+    expect(t.status).toBe('running');
+    expect(t.seeds).toHaveLength(4);
+  });
+});

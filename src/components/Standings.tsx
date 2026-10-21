@@ -1,10 +1,12 @@
 import { ranking } from '../lib/engine';
-import { useName, useT } from './ctx';
+import { Crest } from './Crest';
+import { useName, usePlayer, useT } from './ctx';
 import { Icon } from './ui';
 
 export function StandingsTab() {
   const { t, res } = useT();
   const name = useName();
+  const player = usePlayer();
   const rows = ranking(t, res);
   const anyPlayed = rows.some((r) => r.st.played > 0);
 
@@ -21,7 +23,7 @@ export function StandingsTab() {
               <tr key={r.id} className={`tone-${r.tone}`}>
                 <td className="l pos">{r.tone === 'gold' ? <span className="medal"><Icon name="trophy" size={16} /></span> : r.rank}</td>
                 <td className="l name">
-                  <b>{name(r.id)}</b>
+                  <b><Crest team={player(r.id)?.team} size={18} />{name(r.id)}</b>
                   {r.label && <small className={`status ${r.tone}`}>{r.label}</small>}
                 </td>
                 <td>{r.st.played}</td>
