@@ -7,7 +7,8 @@ import { Crest, TeamPicker } from './Crest';
 import { FORMATS, formatLabel } from './ctx';
 import { Icon, Logo, Stepper, useConfirm } from './ui';
 
-const DURATIONS = [10, 12, 15, 20];
+/** Durée réelle d'un match FC avec des mi-temps de 4 min (présentation et mi-temps comprises). */
+export const MATCH_MINUTES = 12;
 const DEFAULT_GAME = 'EA Sports FC 26';
 
 /* ------------------------------------------------------------ accueil */
@@ -48,7 +49,7 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
   const [name, setName] = useState(initial?.name ?? '');
   const [game, setGame] = useState(initial?.game ?? DEFAULT_GAME);
   const [format, setFormat] = useState<Format>(initial?.format ?? 'single');
-  const [matchMinutes, setMinutes] = useState(initial?.matchMinutes ?? 15);
+  const matchMinutes = MATCH_MINUTES;
   const [count, setCount] = useState(initial?.count ?? 8);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,14 +99,10 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
         </div>
       )}
 
-      <fieldset className="field">
-        <legend>Durée d’un match</legend>
-        <div className="chips">
-          {DURATIONS.map((d) => (
-            <button type="button" key={d} className={`chip ${matchMinutes === d ? 'on' : ''}`} aria-pressed={matchMinutes === d} onClick={() => setMinutes(d)}>{d} min</button>
-          ))}
-        </div>
-      </fieldset>
+      <div className="field row">
+        <span>Durée d’un match</span>
+        <span className="fixed-duration"><b>{MATCH_MINUTES} min</b><small>mi-temps de 4 min</small></span>
+      </div>
 
       <div className="estimate">
         <Icon name="play" size={16} />
@@ -266,7 +263,7 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
       {!running && (
         <div className="bottom-bar">
           <p className="bottom-hint">
-            {fmtErr ?? <>{matches} matchs · ≈ {formatDuration(matches * t.matchMinutes)}</>}
+            {fmtErr ?? <>{matches} matchs · ≈ {formatDuration(matches * MATCH_MINUTES)}</>}
           </p>
           <button className="btn primary xl" onClick={draw} disabled={!!fmtErr}><Icon name="shuffle" />Lancer le tirage</button>
         </div>

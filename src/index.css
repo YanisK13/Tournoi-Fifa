@@ -414,3 +414,7 @@ button.mc:active { transform: scale(.985); }
 .team-current span { flex: 1; min-width: 0; }
 .team-current .btn { min-height: 40px; padding: 0 12px; font-size: 14px; }
 .spinner.tiny { display: inline-block; width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+
+.fixed-duration { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.fixed-duration b { font: 800 22px/1 var(--display); color: var(--accent); }
+.fixed-duration small { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
