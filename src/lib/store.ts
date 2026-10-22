@@ -1,12 +1,12 @@
-import { makeGroups, pruneResults, shuffle } from './engine';
+import { assignConsoles, makeGroups, pruneResults, shuffle } from './engine';
 import type { Format, MatchResult, Player, Team, Tournament } from './types';
-import { MAX_PLAYERS } from './types';
+import { MAX_CONSOLES, MAX_PLAYERS } from './types';
 
 export const uid = () => Math.random().toString(36).slice(2, 8);
 
 export type Action =
-  | { type: 'create'; name: string; game: string; format: Format; matchMinutes: number; count: number }
-  | { type: 'update'; patch: Partial<Pick<Tournament, 'name' | 'game' | 'format' | 'matchMinutes'>> }
+  | { type: 'create'; name: string; game: string; format: Format; matchMinutes: number; count: number; consoles?: number }
+  | { type: 'update'; patch: Partial<Pick<Tournament, 'name' | 'game' | 'format' | 'matchMinutes' | 'consoles'>> }
   | { type: 'addPlayer'; name: string }
   | { type: 'renamePlayer'; id: string; name: string }
   | { type: 'setTeam'; id: string; team: Team | null }
@@ -19,14 +19,24 @@ export type Action =
   | { type: 'import'; t: Tournament };
 
 function backToSetup(t: Tournament): Tournament {
-  return { ...t, status: 'setup', seeds: [], groups: [], results: {} };
+  return { ...t, status: 'setup', seeds: [], groups: [], results: {}, live: {} };
 }
 
+const clampConsoles = (n: unknown) => Math.min(MAX_CONSOLES, Math.max(1, Math.floor(Number(n) || 1)));
+
+/** Applique l'action puis met à jour la répartition des matchs sur les consoles. */
 export function reducer(t: Tournament | null, a: Action): Tournament | null {
+  const next = baseReducer(t, a);
+  if (!next || next === t) return next;
+  if (next.status !== 'running') return next.live && Object.keys(next.live).length ? { ...next, live: {} } : next;
+  return { ...next, live: assignConsoles(next) };
+}
+
+function baseReducer(t: Tournament | null, a: Action): Tournament | null {
   if (a.type === 'create') {
     const players: Player[] = Array.from({ length: a.count }, (_, i) => ({ id: uid(), name: `Joueur ${i + 1}` }));
     return {
-      id: uid(), name: a.name, game: a.game, format: a.format, matchMinutes: a.matchMinutes,
+      id: uid(), name: a.name, game: a.game, format: a.format, matchMinutes: a.matchMinutes, consoles: clampConsoles(a.consoles),
       players, status: 'setup', seeds: [], groups: [], results: {}, createdAt: Date.now(),
     };
   }
@@ -35,10 +45,12 @@ export function reducer(t: Tournament | null, a: Action): Tournament | null {
   if (!t) return t;
 
   switch (a.type) {
-    case 'update':
+    case 'update': {
+      const patch = a.patch.consoles !== undefined ? { ...a.patch, consoles: clampConsoles(a.patch.consoles) } : a.patch;
       // Changer de format en cours de tournoi impose un nouveau tirage.
-      if (a.patch.format && a.patch.format !== t.format && t.status === 'running') return backToSetup({ ...t, ...a.patch });
-      return { ...t, ...a.patch };
+      if (patch.format && patch.format !== t.format && t.status === 'running') return backToSetup({ ...t, ...patch });
+      return { ...t, ...patch };
+    }
     case 'addPlayer':
       if (t.players.length >= MAX_PLAYERS || t.status !== 'setup') return t;
       return { ...t, players: [...t.players, { id: uid(), name: a.name }] };

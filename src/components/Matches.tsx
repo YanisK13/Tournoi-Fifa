@@ -1,4 +1,4 @@
-import { matchTitle, playable, readyQueue, type RMatch } from '../lib/engine';
+import { consoleCount, matchTitle, playable, readyQueue, type RMatch } from '../lib/engine';
 import { Crest } from './Crest';
 import { useName, usePlayer, useT } from './ctx';
 import { Icon } from './ui';
@@ -10,9 +10,10 @@ function methodTag(m: RMatch) {
 
 /** Ligne de match : utilisée dans les listes et dans le tableau. */
 export function MatchCard({ m, compact = false, caption }: { m: RMatch; compact?: boolean; caption?: string }) {
-  const { openMatch } = useT();
+  const { t, openMatch } = useT();
   const name = useName();
   const player = usePlayer();
+  const onConsole = m.state === 'ready' && consoleCount(t) > 1 ? t.live?.[m.id] : undefined;
   const clickable = m.state === 'ready' || m.state === 'done';
   const side = (id: typeof m.pa, score: number | undefined) => {
     const won = m.state === 'done' && m.winner === id;
@@ -27,6 +28,7 @@ export function MatchCard({ m, compact = false, caption }: { m: RMatch; compact?
   const body = (
     <>
       {caption && <span className="mc-caption">{caption}{methodTag(m)}</span>}
+      {onConsole && <span className="mc-console">Console {onConsole}</span>}
       {side(m.pa, m.result?.sa)}
       {side(m.pb, m.result?.sb)}
       {m.state === 'ready' && !compact && <span className="mc-cta">Saisir <Icon name="play" size={12} /></span>}
@@ -46,7 +48,17 @@ export function MatchesTab({ onChampion }: { onChampion: () => void }) {
   const player = usePlayer();
   const all = playable(res);
   const queue = readyQueue(res);
-  const [next, ...later] = queue;
+  const C = consoleCount(t);
+  const live = t.live ?? {};
+  // Matchs en cours : ceux affectés à une console (repli sur la file si l'affectation manque).
+  const onConsole = Array.from({ length: C }, (_, i) => {
+    const id = Object.keys(live).find((k) => live[k] === i + 1);
+    const m = id ? res.byId.get(id) : undefined;
+    return m && m.state === 'ready' ? m : undefined;
+  });
+  if (!onConsole.some(Boolean) && queue[0]) onConsole[0] = queue[0];
+  const playing = new Set(onConsole.filter(Boolean).map((m) => m!.id));
+  const later = queue.filter((m) => !playing.has(m.id));
   const pending = all.filter((m) => m.state === 'pending');
   const done = all.filter((m) => m.state === 'done').sort((a, b) => (b.result!.at ?? 0) - (a.result!.at ?? 0));
   const total = all.length;
@@ -67,20 +79,29 @@ export function MatchesTab({ onChampion }: { onChampion: () => void }) {
         </button>
       )}
 
-      {next && (
-        <section className="next-match">
-          <p className="eyebrow">À la manette · {matchTitle(next, res, t.format)}</p>
-          <div className="next-vs">
-            {[next.pa, next.pb].map((id, k) => (
-              <div key={k} className={`next-side ${k ? 'b' : 'a'}`}>
-                <Crest team={player(id)?.team} size={52} />
-                <span>{name(id)}</span>
-                {player(id)?.team && <small>{player(id)!.team!.name}</small>}
+      {playing.size > 0 && (
+        <section className={`consoles ${C > 1 ? 'multi' : ''}`}>
+          {onConsole.map((m, i) => m ? (
+            <div key={m.id} className="next-match">
+              <p className="eyebrow">{C > 1 ? `Console ${i + 1}` : 'À la manette'} · {matchTitle(m, res, t.format)}</p>
+              <div className="next-vs">
+                {[m.pa, m.pb].map((id, k) => (
+                  <div key={k} className={`next-side ${k ? 'b' : 'a'}`}>
+                    <Crest team={player(id)?.team} size={C > 1 ? 40 : 52} />
+                    <span>{name(id)}</span>
+                    {player(id)?.team && <small>{player(id)!.team!.name}</small>}
+                  </div>
+                ))}
+                <i>VS</i>
               </div>
-            ))}
-            <i>VS</i>
-          </div>
-          <button className="btn primary xl" onClick={() => openMatch(next.id)}><Icon name="play" />Saisir le score</button>
+              <button className="btn primary xl" onClick={() => openMatch(m.id)}><Icon name="play" />Saisir le score</button>
+            </div>
+          ) : (
+            <div key={`free-${i}`} className="console-free">
+              <p className="eyebrow">Console {i + 1}</p>
+              <span>Libre · en attente des résultats en cours</span>
+            </div>
+          ))}
         </section>
       )}
 

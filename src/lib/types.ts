@@ -66,8 +66,13 @@ export interface Tournament {
   groups: string[][];
   results: Record<string, MatchResult>;
   createdAt: number;
+  /** Nombre de consoles disponibles (1 par défaut). */
+  consoles?: number;
+  /** Match en cours sur chaque console : id du match → numéro de console (1, 2…). */
+  live?: Record<string, number>;
 }
 
+export const MAX_CONSOLES = 8;
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 32;
 export const MIN_PLAYERS_GROUPS = 6;

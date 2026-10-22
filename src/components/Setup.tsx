@@ -1,8 +1,8 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { estimateMatches, formatDuration, formatError } from '../lib/engine';
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { consoleCount, estimateMatches, estimateSlots, formatDuration, formatError, maxUsefulConsoles } from '../lib/engine';
 import type { Action } from '../lib/store';
 import type { Format, Tournament } from '../lib/types';
-import { MAX_PLAYERS, MIN_PLAYERS, MIN_PLAYERS_GROUPS } from '../lib/types';
+import { MAX_PLAYERS, MIN_PLAYERS, MIN_PLAYERS_GROUPS, MAX_CONSOLES } from '../lib/types';
 import { Crest, TeamPicker } from './Crest';
 import { FORMATS, formatLabel } from './ctx';
 import { Icon, Logo, Stepper, useConfirm } from './ui';
@@ -36,7 +36,7 @@ export function Home({ onCreate }: { onCreate: () => void }) {
 
 /* ------------------------------------------------------------ paramètres (création + édition) */
 
-interface FormValues { name: string; game: string; format: Format; matchMinutes: number; count: number }
+interface FormValues { name: string; game: string; format: Format; matchMinutes: number; count: number; consoles: number }
 
 export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, onCancel }: {
   initial?: Partial<FormValues>;
@@ -51,10 +51,14 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
   const [format, setFormat] = useState<Format>(initial?.format ?? 'single');
   const matchMinutes = MATCH_MINUTES;
   const [count, setCount] = useState(initial?.count ?? 8);
+  const [consoles, setConsoles] = useState(initial?.consoles ?? 1);
   const [error, setError] = useState<string | null>(null);
 
   const n = playerCount ?? count;
-  const matches = estimateMatches(format, Math.max(n, 2));
+  const maxConsoles = Math.min(MAX_CONSOLES, maxUsefulConsoles(n));
+  const usedConsoles = Math.min(consoles, maxConsoles);
+  const matches = useMemo(() => estimateMatches(format, Math.max(n, 2)), [format, n]);
+  const slots = useMemo(() => estimateSlots(format, Math.max(n, 2), usedConsoles), [format, n, usedConsoles]);
   const fmtErr = formatError(format, n);
 
   const submit = (e: FormEvent) => {
@@ -62,7 +66,7 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
     const clean = name.trim() || 'Soirée FC';
     if (clean.length > 40) return setError('Le nom doit faire 40 caractères maximum.');
     if (playerCount === undefined && fmtErr) return setError(fmtErr);
-    onSubmit({ name: clean, game: game.trim() || DEFAULT_GAME, format, matchMinutes, count });
+    onSubmit({ name: clean, game: game.trim() || DEFAULT_GAME, format, matchMinutes, count, consoles: usedConsoles });
   };
 
   return (
@@ -96,6 +100,11 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
       )}
 
       <div className="field row">
+        <span>Consoles <small className="muted">(matchs en même temps)</small></span>
+        <Stepper value={usedConsoles} min={1} max={maxConsoles} onChange={setConsoles} label="Nombre de consoles" />
+      </div>
+
+      <div className="field row">
         <span>Durée d’un match</span>
         <span className="fixed-duration"><b>{MATCH_MINUTES} min</b><small>mi-temps de 4 min</small></span>
       </div>
@@ -103,7 +112,7 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
       <div className="estimate">
         <Icon name="play" size={16} />
         {fmtErr ? <span className="warn">{fmtErr}</span> : (
-          <span><b>{matches} matchs</b>{format === 'double' && ' (+1 si revanche)'} · environ <b>{formatDuration(matches * matchMinutes)}</b> sur une console</span>
+          <span><b>{matches} matchs</b>{format === 'double' && ' (+1 si revanche)'} · environ <b>{formatDuration(slots * matchMinutes)}</b> sur {usedConsoles > 1 ? `${usedConsoles} consoles` : 'une console'}</span>
         )}
       </div>
 
@@ -155,7 +164,9 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
   const running = t.status === 'running';
   const n = t.players.length;
   const fmtErr = formatError(t.format, n);
-  const matches = estimateMatches(t.format, Math.max(n, 2));
+  const consoles = Math.min(consoleCount(t), maxUsefulConsoles(n));
+  const matches = useMemo(() => estimateMatches(t.format, Math.max(n, 2)), [t.format, n]);
+  const slots = useMemo(() => estimateSlots(t.format, Math.max(n, 2), consoles), [t.format, n, consoles]);
 
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -259,7 +270,7 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
       {!running && (
         <div className="bottom-bar">
           <p className="bottom-hint">
-            {fmtErr ?? <>{matches} matchs · ≈ {formatDuration(matches * MATCH_MINUTES)}</>}
+            {fmtErr ?? <>{matches} matchs · ≈ {formatDuration(slots * MATCH_MINUTES)}{consoles > 1 ? ` sur ${consoles} consoles` : ''}</>}
           </p>
           <button className="btn primary xl" onClick={draw} disabled={!!fmtErr}><Icon name="shuffle" />Lancer le tirage</button>
         </div>

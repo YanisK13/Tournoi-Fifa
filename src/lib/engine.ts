@@ -478,3 +478,62 @@ export function formatDuration(min: number): string {
   const m = min % 60;
   return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
 }
+
+/* ---------------------------------------------------------- consoles */
+
+export const consoleCount = (t: Pick<Tournament, 'consoles'>) => Math.max(1, Math.floor(t.consoles ?? 1));
+
+/** Au plus une console par paire de joueurs, sinon des consoles resteraient toujours vides. */
+export const maxUsefulConsoles = (players: number) => Math.max(1, Math.floor(players / 2));
+
+/**
+ * Répartit les matchs prêts sur les consoles libres.
+ * Un match déjà sur une console y reste tant qu'il n'est pas joué ; une console libérée prend
+ * le prochain match de la file dont aucun joueur n'est déjà en train de jouer.
+ * Déterministe : tous les téléphones obtiennent la même répartition.
+ */
+export function assignConsoles(t: Pick<Tournament, 'format' | 'seeds' | 'groups' | 'results' | 'consoles' | 'live'>, res: Resolved = resolve(t)): Record<string, number> {
+  const C = consoleCount(t);
+  const live: Record<string, number> = {};
+  const busy = new Set<string>();
+  const used = new Set<number>();
+  for (const [id, c] of Object.entries(t.live ?? {})) {
+    const m = res.byId.get(id);
+    if (!m || m.state !== 'ready' || c < 1 || c > C || used.has(c) || busy.has(m.pa!) || busy.has(m.pb!)) continue;
+    live[id] = c;
+    used.add(c);
+    busy.add(m.pa!); busy.add(m.pb!);
+  }
+  for (const m of readyQueue(res)) {
+    if (used.size >= C) break;
+    if (live[m.id] || busy.has(m.pa!) || busy.has(m.pb!)) continue;
+    let c = 1;
+    while (used.has(c)) c++;
+    live[m.id] = c;
+    used.add(c);
+    busy.add(m.pa!); busy.add(m.pb!);
+  }
+  return live;
+}
+
+/** Nombre de « créneaux » (tours de consoles) pour finir le tournoi, en jouant en parallèle. */
+export function estimateSlots(format: Format, n: number, consoles: number): number {
+  if (n < 2) return 0;
+  const ids = Array.from({ length: n }, (_, i) => `p${i}`);
+  let t = { format, seeds: ids, groups: format === 'groups' ? makeGroups(ids) : [], results: {} as Record<string, MatchResult>, consoles, live: {} as Record<string, number> };
+  let slots = 0;
+  for (let guard = 0; guard < 2000; guard++) {
+    const res = resolve(t);
+    const live = assignConsoles(t, res);
+    const ids2 = Object.keys(live);
+    if (!ids2.length) break;
+    const results = { ...t.results };
+    for (const id of ids2) {
+      const m = res.byId.get(id)!;
+      results[id] = { a: m.pa!, b: m.pb!, sa: 1, sb: 0, winner: m.pa, method: 'normal', at: 0 };
+    }
+    t = { ...t, results, live: {} };
+    slots++;
+  }
+  return slots;
+}

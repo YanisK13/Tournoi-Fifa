@@ -7,7 +7,7 @@ import { ScoreSheet } from './components/ScoreSheet';
 import { CreateScreen, Home, PlayersScreen, TournamentForm } from './components/Setup';
 import { StandingsTab } from './components/Standings';
 import { Icon, Logo, Sheet, useConfirm, useToast } from './components/ui';
-import { playable, resolve } from './lib/engine';
+import { consoleCount, playable, resolve } from './lib/engine';
 import { liveLink, readTournamentParam, setTournamentParam, shareOrCopy } from './lib/share';
 import type { Action } from './lib/store';
 import { browserPersistence, httpApi, LiveTournament, type Snapshot } from './lib/sync';
@@ -173,7 +173,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
     if (ok) dispatch({ type: 'reset' });
   };
 
-  const saveSettings = async (v: { name: string; game: string; format: Tournament['format']; matchMinutes: number }) => {
+  const saveSettings = async (v: { name: string; game: string; format: Tournament['format']; matchMinutes: number; consoles: number }) => {
     if (t.status === 'running' && v.format !== t.format) {
       const ok = await confirm({
         title: 'Changer de format ?',
@@ -205,7 +205,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
       </Sheet>
       <Sheet open={settings} onClose={() => setSettings(false)} title="Paramètres">
         <TournamentForm
-          initial={t} playerCount={t.players.length} submitLabel="Enregistrer"
+          initial={{ ...t, consoles: consoleCount(t) }} playerCount={t.players.length} submitLabel="Enregistrer"
           onSubmit={saveSettings} onCancel={() => setSettings(false)}
         />
       </Sheet>
@@ -229,7 +229,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
         <header className="topbar">
           <div className="topbar-title stack">
             <h1>{t.name}</h1>
-            <small>{badge}{formatLabel(t.format)} · {t.players.length} joueurs</small>
+            <small>{badge}{formatLabel(t.format)} · {t.players.length} joueurs{consoleCount(t) > 1 ? ` · ${consoleCount(t)} consoles` : ''}</small>
           </div>
           <button className="icon-btn" onClick={share} aria-label="Partager"><Icon name="share" /></button>
           <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Menu du tournoi"><Icon name="dots" /></button>

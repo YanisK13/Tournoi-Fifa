@@ -418,3 +418,15 @@ button.mc:active { transform: scale(.985); }
 .fixed-duration { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .fixed-duration b { font: 800 22px/1 var(--display); color: var(--accent); }
 .fixed-duration small { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+/* ------------------------------------------------------------ consoles */
+.consoles { display: flex; flex-direction: column; gap: 12px; }
+.consoles.multi .next-match { padding: 14px; gap: 12px; }
+.consoles.multi .next-vs span { font-size: clamp(20px, 6vw, 26px); }
+.consoles.multi .btn.xl { min-height: 50px; font-size: 16px; }
+.console-free { padding: 14px 16px; border-radius: 18px; border: 1.5px dashed var(--line); display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px; }
+.console-free .eyebrow { color: var(--muted); }
+.mc-console { position: absolute; top: 8px; right: 10px; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 800 10px/14px var(--body); text-transform: uppercase; letter-spacing: .05em; }
+.mc.compact .mc-console { top: -8px; right: 8px; }
+.mc:has(.mc-console) .mc-cta { display: none; }
+.mc:has(.mc-console) { border-color: var(--accent); }
