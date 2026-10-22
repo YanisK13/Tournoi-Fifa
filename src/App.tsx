@@ -142,7 +142,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
     const text = res.champion
       ? `🏆 ${nameOf(res.champion)} remporte « ${t.name} » !`
       : t.status === 'setup'
-        ? `Rejoins « ${t.name} » (${t.game}) et suis le tournoi en direct :`
+        ? `Rejoins « ${t.name} » et suis le tournoi en direct :`
         : `« ${t.name} » en direct (${done}/${all.length} matchs joués). Suis les scores et saisis tes résultats ici :`;
     const out = await shareOrCopy(t.name, text, liveLink(id));
     if (out === 'copied') toast('Lien copié : colle-le dans WhatsApp');
@@ -229,7 +229,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
         <header className="topbar">
           <div className="topbar-title stack">
             <h1>{t.name}</h1>
-            <small>{badge}{t.game} · {formatLabel(t.format)}</small>
+            <small>{badge}{formatLabel(t.format)} · {t.players.length} joueurs</small>
           </div>
           <button className="icon-btn" onClick={share} aria-label="Partager"><Icon name="share" /></button>
           <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Menu du tournoi"><Icon name="dots" /></button>

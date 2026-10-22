@@ -47,7 +47,7 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
   onCancel?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [game, setGame] = useState(initial?.game ?? DEFAULT_GAME);
+  const game = initial?.game ?? DEFAULT_GAME;
   const [format, setFormat] = useState<Format>(initial?.format ?? 'single');
   const matchMinutes = MATCH_MINUTES;
   const [count, setCount] = useState(initial?.count ?? 8);
@@ -70,10 +70,6 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
       <label className="field">
         <span>Nom du tournoi</span>
         <input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} placeholder="Soirée FC" maxLength={40} enterKeyHint="next" />
-      </label>
-      <label className="field">
-        <span>Jeu</span>
-        <input value={game} onChange={(e) => setGame(e.target.value)} maxLength={40} />
       </label>
 
       <fieldset className="field">
@@ -204,7 +200,7 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
         {onBack && <button className="icon-btn" onClick={onBack} aria-label="Retour"><Icon name="back" /></button>}
         <div className="topbar-title stack">
           <h1>{running ? 'Joueurs' : t.name}</h1>
-          {!running && <small>{badge}{t.game} · {formatLabel(t.format)}</small>}
+          {!running && <small>{badge}{formatLabel(t.format)}</small>}
         </div>
         {!running && onShare && <button className="icon-btn" onClick={onShare} aria-label="Partager"><Icon name="share" /></button>}
         {!running && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
