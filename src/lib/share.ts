@@ -1,7 +1,15 @@
+declare const __PUBLIC_HOST__: string;
+
+/** Adresse publique du site : celle de production si elle est connue, sinon l'adresse actuelle. */
+export function publicOrigin(host = typeof __PUBLIC_HOST__ === 'string' ? __PUBLIC_HOST__ : '', current = window.location.origin): string {
+  const h = host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  if (!h || /^(localhost|127\.|\[?::1)/.test(new URL(current).hostname)) return current;
+  return `https://${h}`;
+}
+
 /** Lien à envoyer aux autres joueurs : il ouvre le tournoi en direct. */
 export function liveLink(id: string): string {
-  const { origin, pathname } = window.location;
-  return `${origin}${pathname}?t=${id}`;
+  return `${publicOrigin()}/?t=${id}`;
 }
 
 export function readTournamentParam(): string | null {

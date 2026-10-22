@@ -35,7 +35,12 @@ function localApi(): Plugin {
   };
 }
 
+// Adresse publique du site (fournie par Vercel au moment du build). Les liens partagés pointent
+// toujours dessus : les adresses de déploiement (…-xxxx-projet.vercel.app) demandent un compte Vercel.
+const PUBLIC_HOST = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? '';
+
 export default defineConfig({
   plugins: [react(), localApi()],
+  define: { __PUBLIC_HOST__: JSON.stringify(PUBLIC_HOST) },
   test: { environment: 'node' },
 } as never);
