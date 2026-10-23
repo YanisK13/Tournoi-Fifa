@@ -148,9 +148,11 @@ export function validateName(name: string, t: Tournament, exceptId?: string): st
   return null;
 }
 
-export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare, badge, shared = false }: {
+export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare, badge, shared = false, canManage = true }: {
   t: Tournament; dispatch: (a: Action) => void; onSettings: () => void; onMenu: () => void; onBack?: () => void;
   onShare?: () => void; badge?: ReactNode; shared?: boolean;
+  /** Faux pour un participant : il voit les joueurs et choisit son club, l'organisateur gère le reste. */
+  canManage?: boolean;
 }) {
   const confirm = useConfirm();
   const [draft, setDraft] = useState('');
@@ -214,19 +216,20 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
           {!running && <small>{badge}{formatLabel(t.format)}</small>}
         </div>
         {!running && onShare && <button className="icon-btn" onClick={onShare} aria-label="Partager"><Icon name="share" /></button>}
-        {!running && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
+        {!running && canManage && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
         {!running && <button className="icon-btn" onClick={onMenu} aria-label="Plus d’actions"><Icon name="dots" /></button>}
       </header>
 
       <div className="section-head">
         <h2>Joueurs <span className={`count ${n < MIN_PLAYERS ? 'warn' : ''}`}>{n}/{MAX_PLAYERS}</span></h2>
-        {running && <p className="muted">Renommer un joueur ne change rien au tournoi.</p>}
-        {!running && shared && onShare && (
+        {running && canManage && <p className="muted">Renommer un joueur ne change rien au tournoi.</p>}
+        {!canManage && <p className="muted">Choisis ton club en touchant le + à côté de ton nom. L’organisateur gère la liste et le tirage.</p>}
+        {!running && shared && onShare && canManage && (
           <button className="invite" onClick={onShare}><Icon name="share" size={18} />Envoie le lien sur WhatsApp : chacun pourra suivre et saisir les scores.</button>
         )}
       </div>
 
-      {n === 0 && <p className="empty">Aucun joueur pour l’instant. Ajoute au moins {MIN_PLAYERS} prénoms ou pseudos.</p>}
+      {n === 0 && canManage && <p className="empty">Aucun joueur pour l’instant. Ajoute au moins {MIN_PLAYERS} prénoms ou pseudos.</p>}
 
       <ul className="player-list">
         {t.players.map((p, i) => (
@@ -243,7 +246,7 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
                 <button type="button" className="icon-btn" onClick={() => setEditing(null)} aria-label="Annuler"><Icon name="x" /></button>
                 {editErr && <p className="error small">{editErr}</p>}
               </form>
-            ) : (
+            ) : canManage ? (
               <>
                 <button className="player-name" onClick={() => startEdit(p.id, p.name)} aria-label={`Renommer ${p.name}`}>
                   {p.name}
@@ -252,12 +255,17 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
                 <button className="icon-btn" onClick={() => startEdit(p.id, p.name)} aria-label={`Modifier ${p.name}`}><Icon name="edit" size={18} /></button>
                 <button className="icon-btn danger" onClick={() => remove(p.id, p.name)} aria-label={`Supprimer ${p.name}`}><Icon name="trash" size={18} /></button>
               </>
+            ) : (
+              <button className="player-name" onClick={() => setPicking(p.id)} aria-label={`Choisir le club de ${p.name}`}>
+                {p.name}
+                <small className={p.team ? '' : 'add-club'}>{p.team ? p.team.name : 'Choisir son club'}</small>
+              </button>
             )}
           </li>
         ))}
       </ul>
 
-      {!running && (
+      {!running && canManage && (
         <form className="add-player" onSubmit={add}>
           <input ref={addRef} value={draft} onChange={(e) => { setDraft(e.target.value); setError(null); }}
             placeholder={n >= MAX_PLAYERS ? 'Tournoi complet' : 'Prénom ou pseudo'} maxLength={20} disabled={n >= MAX_PLAYERS}
@@ -272,7 +280,9 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
           <p className="bottom-hint">
             {fmtErr ?? <>{matches} matchs · ≈ {formatDuration(slots * MATCH_MINUTES)}{consoles > 1 ? ` sur ${consoles} consoles` : ''}</>}
           </p>
-          <button className="btn primary xl" onClick={draw} disabled={!!fmtErr}><Icon name="shuffle" />Lancer le tirage</button>
+          {canManage
+            ? <button className="btn primary xl" onClick={draw} disabled={!!fmtErr}><Icon name="shuffle" />Lancer le tirage</button>
+            : <p className="waiting"><span className="spinner tiny" />En attente du tirage par l’organisateur…</p>}
         </div>
       )}
       {pickingPlayer && (

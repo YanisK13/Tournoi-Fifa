@@ -16,7 +16,9 @@ function localApi(): Plugin {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
     const body = chunks.length ? Buffer.concat(chunks) : undefined;
-    const request = new Request(`http://localhost${req.url}`, { method: req.method, body: req.method === 'GET' ? undefined : body });
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
+    const request = new Request(`http://localhost${req.url}`, { method: req.method, headers, body: req.method === 'GET' ? undefined : body });
     // TEAMS_FIXTURE=fichier.json : réponse de recherche de clubs simulée (tests hors ligne).
     const fixture = process.env.TEAMS_FIXTURE;
     const r = isTeams

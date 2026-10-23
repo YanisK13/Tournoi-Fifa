@@ -8,7 +8,7 @@ import { CreateScreen, Home, PlayersScreen, TournamentForm } from './components/
 import { StandingsTab } from './components/Standings';
 import { Icon, Logo, Sheet, useConfirm, useToast } from './components/ui';
 import { consoleCount, playable, resolve } from './lib/engine';
-import { liveLink, readTournamentParam, setTournamentParam, shareOrCopy } from './lib/share';
+import { liveLink, organizerLink, readAdminKey, readTournamentParam, setTournamentParam, shareOrCopy } from './lib/share';
 import type { Action } from './lib/store';
 import { browserPersistence, httpApi, LiveTournament, type Snapshot } from './lib/sync';
 import type { Tournament } from './lib/types';
@@ -22,8 +22,9 @@ function useLive(): Snapshot {
   const snap = useSyncExternalStore(live.subscribe, live.getSnapshot);
   useEffect(() => {
     const param = readTournamentParam();
+    const adminKey = readAdminKey();
     const current = live.getSnapshot().id;
-    if (param) void live.open(param);
+    if (param) void live.open(param, adminKey);
     else if (current) void live.open(current);
     // Rafraîchissement régulier : chaque saisie apparaît sur tous les téléphones en ~2 s.
     const iv = setInterval(() => { if (!document.hidden) void live.poll(); }, POLL_MS);
@@ -49,6 +50,8 @@ export default function App() {
   const { t } = snap;
 
   useEffect(() => { if (!t) setCreating(false); }, [t]);
+  // Messages de la synchro (action refusée, annulation…).
+  useEffect(() => { if (snap.notice) toast(snap.notice.msg); }, [snap.notice?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!t && snap.status === 'loading') {
     return (
@@ -98,7 +101,12 @@ function LiveBadge({ snap, onPublish }: { snap: Snapshot; onPublish: () => void 
   }
   const label = { live: 'En direct', syncing: 'Envoi…', offline: 'Hors ligne', loading: 'Connexion…', missing: 'Introuvable' }[snap.status];
   const title = snap.status === 'offline' ? 'Tes saisies seront envoyées dès le retour du réseau.' : 'Les scores sont partagés en temps réel avec tous ceux qui ont le lien.';
-  return <span className={`live-badge ${snap.status}`} title={title} role="status"><i />{label}</span>;
+  return (
+    <>
+      <span className={`live-badge ${snap.status}`} title={title} role="status"><i />{label}</span>
+      {snap.protected && <span className={`role-chip ${snap.role}`}>{snap.role === 'player' ? 'Participant' : 'Organisateur'}</span>}
+    </>
+  );
 }
 
 function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; dispatch: (a: Action) => void }) {
@@ -113,6 +121,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
   const [showChamp, setShowChamp] = useState(false);
   const prevChamp = useRef(res.champion);
   const shared = !!snap.id;
+  const canManage = snap.role !== 'player';
   const everyone = shared ? ' Ce changement s’applique pour tous les participants.' : '';
 
   useEffect(() => {
@@ -173,6 +182,45 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
     if (ok) dispatch({ type: 'reset' });
   };
 
+  const undo = async () => {
+    setMenu(false);
+    const ok = await confirm({
+      title: 'Annuler la dernière action ?',
+      message: 'Le tournoi revient à l’état d’avant la dernière modification (score, tirage, recommencer…), pour tout le monde.',
+      confirm: 'Annuler l’action',
+    });
+    if (ok) await live.undo();
+  };
+
+  const copyOrganizerLink = async () => {
+    setMenu(false);
+    const key = live.adminKey();
+    if (!snap.id || !key) return;
+    const ok = await confirm({
+      title: 'Lien organisateur',
+      message: 'Ce lien donne tous les droits sur le tournoi. Ouvre-le sur ton autre téléphone, mais ne l’envoie pas dans le groupe.',
+      confirm: 'Copier le lien',
+    });
+    if (!ok) return;
+    try {
+      await navigator.clipboard.writeText(organizerLink(snap.id, key));
+      toast('Lien organisateur copié');
+    } catch {
+      const out = await shareOrCopy(t.name, 'Lien organisateur (ne pas partager) :', organizerLink(snap.id, key));
+      if (out === 'failed') toast('Copie impossible depuis ce navigateur.');
+    }
+  };
+
+  const claim = async () => {
+    setMenu(false);
+    const ok = await confirm({
+      title: 'Devenir organisateur ?',
+      message: 'Ce tournoi a été créé avant le mode organisateur : tout le monde peut tout modifier. Si tu le protèges, toi seul pourras tirer au sort, recommencer ou changer les joueurs. Les autres pourront toujours saisir les scores.',
+      confirm: 'Protéger le tournoi',
+    });
+    if (ok) await live.claim();
+  };
+
   const saveSettings = async (v: { name: string; game: string; format: Tournament['format']; matchMinutes: number; consoles: number }) => {
     if (t.status === 'running' && v.format !== t.format) {
       const ok = await confirm({
@@ -195,9 +243,13 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
       <Sheet open={menu} onClose={() => setMenu(false)} title="Tournoi">
         <div className="menu">
           <button className="menu-item" onClick={share}><Icon name="share" />Partager le lien du tournoi</button>
-          {t.status === 'running' && <button className="menu-item" onClick={() => { setMenu(false); setPlayers(true); }}><Icon name="users" />Joueurs</button>}
-          <button className="menu-item" onClick={() => { setMenu(false); setSettings(true); }}><Icon name="settings" />Paramètres</button>
-          {t.status === 'running' && <button className="menu-item" onClick={restart}><Icon name="reset" />Recommencer (mêmes joueurs)</button>}
+          {t.status === 'running' && <button className="menu-item" onClick={() => { setMenu(false); setPlayers(true); }}><Icon name="users" />{canManage ? 'Joueurs' : 'Joueurs et clubs'}</button>}
+          {canManage && <button className="menu-item" onClick={() => { setMenu(false); setSettings(true); }}><Icon name="settings" />Paramètres</button>}
+          {canManage && shared && <button className="menu-item" onClick={undo}><Icon name="back" />Annuler la dernière action</button>}
+          {canManage && t.status === 'running' && <button className="menu-item" onClick={restart}><Icon name="reset" />Recommencer (mêmes joueurs)</button>}
+          {canManage && shared && snap.protected && live.adminKey() && <button className="menu-item" onClick={copyOrganizerLink}><Icon name="users" />Lien organisateur (2e téléphone)</button>}
+          {shared && !snap.protected && <button className="menu-item" onClick={claim}><Icon name="settings" />Devenir organisateur (protéger le tournoi)</button>}
+          {!canManage && <p className="menu-note">Tu es participant : tu peux saisir les scores et choisir ton club. Le reste est géré par l’organisateur.</p>}
           <button className="menu-item danger" onClick={newTournament}>
             <Icon name={shared ? 'back' : 'trash'} />{shared ? 'Quitter ce tournoi' : 'Supprimer et créer un nouveau tournoi'}
           </button>
@@ -216,7 +268,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
     return (
       <TournamentCtx.Provider value={ctx}>
         <PlayersScreen t={t} dispatch={dispatch} onSettings={() => setSettings(true)} onMenu={() => setMenu(true)}
-          onShare={share} badge={badge} shared={shared}
+          onShare={share} badge={badge} shared={shared} canManage={canManage}
           onBack={players ? () => setPlayers(false) : undefined} />
         {sheets}
       </TournamentCtx.Provider>
@@ -257,7 +309,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
         <ChampionScreen
           onClose={() => { setShowChamp(false); setTab('bracket'); }}
           onShare={share}
-          onReplay={restart}
+          onReplay={canManage ? restart : undefined}
           onNew={newTournament}
         />
       )}

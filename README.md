@@ -21,6 +21,14 @@ npm run preview    # sert le build de production
 
 Pour l'utiliser sur ton téléphone pendant la soirée : lance `npm run dev`, puis ouvre sur le téléphone l'adresse « Network » affichée (même Wi-Fi). Le dossier `dist/` peut aussi être déployé tel quel sur n'importe quel hébergement statique (Netlify, Vercel, GitHub Pages…).
 
+## Organisateur et participants
+
+- Le téléphone qui crée le tournoi en est **l'organisateur** (clé secrète gardée sur ce téléphone).
+- Les **participants** (ceux qui ont le lien) peuvent saisir/corriger des scores et choisir leur club. Le reste (joueurs, tirage, format, consoles, recommencer) est réservé à l'organisateur, et **vérifié par le serveur**.
+- L'organisateur peut **annuler la dernière action** (30 versions gardées), y compris un « Recommencer » malencontreux.
+- **Lien organisateur** (menu) : pour piloter depuis un 2e téléphone. La clé est après le `#` : elle n'est jamais envoyée au serveur dans l'adresse.
+- Un tournoi créé avant cette fonction est ouvert à tous ; n'importe quel téléphone peut le **protéger** une fois (menu → Devenir organisateur).
+
 ## Mise en ligne sur Vercel (temps réel)
 
 1. Importer le dépôt dans Vercel (réglages par défaut, Vercel détecte Vite).

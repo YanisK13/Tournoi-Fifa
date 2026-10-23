@@ -430,3 +430,10 @@ button.mc:active { transform: scale(.985); }
 .mc.compact .mc-console { top: -8px; right: 8px; }
 .mc:has(.mc-console) .mc-cta { display: none; }
 .mc:has(.mc-console) { border-color: var(--accent); }
+
+/* ------------------------------------------------------------ organisateur */
+.role-chip { display: inline-flex; align-items: center; margin-right: 8px; padding: 1px 7px; border-radius: 999px; font: 800 10px/16px var(--body); letter-spacing: .06em; text-transform: uppercase; vertical-align: 1px; background: rgba(255, 201, 60, .14); color: var(--gold); }
+.role-chip.player { background: var(--surface-2); color: var(--muted); }
+.waiting { width: 100%; margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; border: 1.5px dashed var(--line); color: var(--muted); font-weight: 700; }
+.menu-note { margin: 4px 14px 8px; font-size: 13px; color: var(--muted); }
+.row-2:has(> :only-child) { grid-template-columns: 1fr; }

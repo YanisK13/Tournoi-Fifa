@@ -12,6 +12,16 @@ export function liveLink(id: string): string {
   return `${publicOrigin()}/?t=${id}`;
 }
 
+/** Lien organisateur : la clé est après le #, elle n'est jamais envoyée au serveur ni enregistrée dans l'historique. */
+export function organizerLink(id: string, key: string): string {
+  return `${liveLink(id)}#admin=${key}`;
+}
+
+export function readAdminKey(): string | null {
+  const m = window.location.hash.match(/admin=([a-z0-9]{24})/);
+  return m ? m[1] : null;
+}
+
 export function readTournamentParam(): string | null {
   const id = new URLSearchParams(window.location.search).get('t');
   return id && /^[a-z0-9]{6,16}$/.test(id) ? id : null;

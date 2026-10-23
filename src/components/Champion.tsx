@@ -4,7 +4,7 @@ import { Crest } from './Crest';
 import { useName, usePlayer, useT } from './ctx';
 import { Icon } from './ui';
 
-export function ChampionScreen({ onClose, onShare, onReplay, onNew }: { onClose: () => void; onShare: () => void; onReplay: () => void; onNew: () => void }) {
+export function ChampionScreen({ onClose, onShare, onReplay, onNew }: { onClose: () => void; onShare: () => void; onReplay?: () => void; onNew: () => void }) {
   const { t, res } = useT();
   const name = useName();
   const player = usePlayer();
@@ -49,7 +49,7 @@ export function ChampionScreen({ onClose, onShare, onReplay, onNew }: { onClose:
       <div className="champion-actions">
         <button className="btn primary xl" onClick={onShare}><Icon name="share" />Partager le résultat</button>
         <div className="row-2">
-          <button className="btn ghost" onClick={onReplay}><Icon name="reset" />Rejouer</button>
+          {onReplay && <button className="btn ghost" onClick={onReplay}><Icon name="reset" />Rejouer</button>}
           <button className="btn ghost" onClick={onNew}><Icon name="plus" />Nouveau</button>
         </div>
         <button className="btn link" onClick={onClose}>Voir le tableau</button>
