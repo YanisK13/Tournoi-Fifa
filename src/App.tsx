@@ -7,7 +7,7 @@ import { ScoreSheet } from './components/ScoreSheet';
 import { CreateScreen, Home, PlayersScreen, TournamentForm } from './components/Setup';
 import { StandingsTab } from './components/Standings';
 import { Icon, Logo, Sheet, useConfirm, useToast } from './components/ui';
-import { consoleCount, playable, resolve } from './lib/engine';
+import { consoleCount, participants, playable, resolve } from './lib/engine';
 import { liveLink, organizerLink, readAdminKey, readTournamentParam, setTournamentParam, shareOrCopy } from './lib/share';
 import type { Action } from './lib/store';
 import { browserPersistence, httpApi, LiveTournament, type Snapshot } from './lib/sync';
@@ -134,7 +134,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
 
   const openMatch = useCallback((id: string) => setOpenId(id), []);
   const ctx: Ctx = { t, res, dispatch, openMatch };
-  const nameOf = (id: string) => t.players.find((p) => p.id === id)?.name ?? '?';
+  const nameOf = (id: string) => participants(t).find((p) => p.id === id)?.name ?? '?';
 
   const publish = async () => {
     const ok = await live.publish();
@@ -221,10 +221,10 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
     if (ok) await live.claim();
   };
 
-  const saveSettings = async (v: { name: string; game: string; format: Tournament['format']; matchMinutes: number; consoles: number }) => {
-    if (t.status === 'running' && v.format !== t.format) {
+  const saveSettings = async (v: { name: string; game: string; format: Tournament['format']; matchMinutes: number; consoles: number; mode: Tournament['mode'] }) => {
+    if (t.status === 'running' && (v.format !== t.format || (v.mode ?? '1v1') !== (t.mode ?? '1v1'))) {
       const ok = await confirm({
-        title: 'Changer de format ?',
+        title: v.format !== t.format ? 'Changer de format ?' : 'Changer de mode de jeu ?',
         message: `Le tirage et tous les scores seront effacés. Il faudra relancer le tirage.${everyone}`,
         confirm: 'Changer de format', danger: true,
       });
@@ -257,7 +257,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
       </Sheet>
       <Sheet open={settings} onClose={() => setSettings(false)} title="Paramètres">
         <TournamentForm
-          initial={{ ...t, consoles: consoleCount(t) }} playerCount={t.players.length} submitLabel="Enregistrer"
+          initial={{ ...t, consoles: consoleCount(t), mode: t.mode ?? '1v1' }} playerCount={t.players.length} submitLabel="Enregistrer"
           onSubmit={saveSettings} onCancel={() => setSettings(false)}
         />
       </Sheet>
@@ -281,7 +281,7 @@ function TournamentView({ t, snap, dispatch }: { t: Tournament; snap: Snapshot; 
         <header className="topbar">
           <div className="topbar-title stack">
             <h1>{t.name}</h1>
-            <small>{badge}{formatLabel(t.format)} · {t.players.length} joueurs{consoleCount(t) > 1 ? ` · ${consoleCount(t)} consoles` : ''}</small>
+            <small>{badge}{t.mode === '2v2' ? `2v2 · ${participants(t).length} duos` : `${formatLabel(t.format)} · ${t.players.length} joueurs`}{consoleCount(t) > 1 ? ` · ${consoleCount(t)} consoles` : ''}</small>
           </div>
           <button className="icon-btn" onClick={share} aria-label="Partager"><Icon name="share" /></button>
           <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Menu du tournoi"><Icon name="dots" /></button>

@@ -437,3 +437,27 @@ button.mc:active { transform: scale(.985); }
 .waiting { width: 100%; margin: 0; min-height: 58px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; border: 1.5px dashed var(--line); color: var(--muted); font-weight: 700; }
 .menu-note { margin: 4px 14px 8px; font-size: 13px; color: var(--muted); }
 .row-2:has(> :only-child) { grid-template-columns: 1fr; }
+
+/* ------------------------------------------------------------ 2 contre 2 */
+.seg.big button { min-height: 50px; font: 800 18px var(--display); text-transform: uppercase; letter-spacing: .03em; }
+.seg.big button.on { background: var(--accent); color: var(--accent-ink); }
+.mode-hint { margin-top: 8px; font-size: 13px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+.duo-tools { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.duo-tools .btn { align-self: flex-start; }
+.duo-tools small { color: var(--muted); font-size: 13px; }
+.duo-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.duo-card { border: 1px solid var(--line); border-radius: 18px; background: var(--bg-2); padding: 10px; }
+.duo-card.alone { border-style: dashed; }
+.duo-card header { display: flex; align-items: center; gap: 10px; padding: 2px 4px 8px; }
+.duo-card .crest-btn.empty[aria-hidden] { display: grid; place-items: center; color: var(--muted); font-weight: 800; }
+.duo-title { display: flex; flex-direction: column; min-width: 0; }
+.duo-title b { font: 800 18px/1.1 var(--display); text-transform: uppercase; }
+.duo-title small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.duo-title small.add-club { color: var(--accent); opacity: .8; }
+.duo-card .player-list { margin: 0; gap: 4px; }
+.duo-card .player-row { min-height: 50px; background: var(--surface); }
+.player-row.swap-on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.icon-btn.swap { color: var(--muted); }
+.icon-btn.swap.on { color: var(--accent-ink); background: var(--accent); }
+span.player-name { display: flex; align-items: center; }

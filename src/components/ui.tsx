@@ -125,12 +125,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 /* ------------------------------------------------------------ segmented / stepper */
 
-export function Stepper({ value, min, max, onChange, label }: { value: number; min: number; max: number; onChange: (v: number) => void; label: string }) {
+export function Stepper({ value, min, max, onChange, label, step = 1 }: { value: number; min: number; max: number; onChange: (v: number) => void; label: string; step?: number }) {
   return (
     <div className="stepper" role="group" aria-label={label}>
-      <button type="button" className="step-btn" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label="Moins"><Icon name="minus" /></button>
+      <button type="button" className="step-btn" onClick={() => onChange(Math.max(min, value - step))} disabled={value <= min} aria-label="Moins"><Icon name="minus" /></button>
       <output aria-live="polite">{value}</output>
-      <button type="button" className="step-btn" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label="Plus"><Icon name="plus" /></button>
+      <button type="button" className="step-btn" onClick={() => onChange(Math.min(max, value + step))} disabled={value >= max} aria-label="Plus"><Icon name="plus" /></button>
     </div>
   );
 }

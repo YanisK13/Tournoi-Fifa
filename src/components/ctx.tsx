@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { Dispatch } from 'react';
 import type { Resolved } from '../lib/engine';
-import { BYE } from '../lib/engine';
+import { BYE, participants } from '../lib/engine';
 import type { Action } from '../lib/store';
 import type { Format, Tournament } from '../lib/types';
 
@@ -20,13 +20,14 @@ export function useName() {
   return (id: string | null | undefined) => {
     if (!id) return 'À déterminer';
     if (id === BYE) return 'Exempt';
-    return t.players.find((p) => p.id === id)?.name ?? '?';
+    return participants(t).find((p) => p.id === id)?.name ?? '?';
   };
 }
 
+/** Joueur (1v1) ou duo (2v2) à partir de son identifiant dans le tableau. */
 export function usePlayer() {
   const { t } = useT();
-  return (id: string | null | undefined) => (id && id !== BYE ? t.players.find((p) => p.id === id) : undefined);
+  return (id: string | null | undefined) => (id && id !== BYE ? participants(t).find((p) => p.id === id) : undefined);
 }
 
 export const FORMATS: { id: Format; label: string; desc: string }[] = [

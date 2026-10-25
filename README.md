@@ -21,6 +21,12 @@ npm run preview    # sert le build de production
 
 Pour l'utiliser sur ton téléphone pendant la soirée : lance `npm run dev`, puis ouvre sur le téléphone l'adresse « Network » affichée (même Wi-Fi). Le dossier `dist/` peut aussi être déployé tel quel sur n'importe quel hébergement statique (Netlify, Vercel, GitHub Pages…).
 
+## 2 contre 2
+
+- À la création, choisir **2 contre 2** : le nombre de joueurs doit être pair (3 duos minimum).
+- Les duos se forment dans l'ordre de la liste (1+2, 3+4…). L'organisateur peut les **tirer au hasard** ou les **composer à la main** (bouton ⇄ sur deux joueurs) avant le tirage.
+- Le club se choisit **par duo**. Tous les formats, les consoles et le temps réel fonctionnent avec les duos.
+
 ## Organisateur et participants
 
 - Le téléphone qui crée le tournoi en est **l'organisateur** (clé secrète gardée sur ce téléphone).

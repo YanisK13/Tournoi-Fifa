@@ -1,4 +1,4 @@
-import type { Format, MatchDef, MatchResult, Source, Tournament } from './types';
+import type { Duo, Format, MatchDef, MatchResult, Participant, Player, Source, Tournament } from './types';
 import { MIN_PLAYERS, MIN_PLAYERS_GROUPS, MAX_PLAYERS } from './types';
 
 export const BYE = '__bye__';
@@ -348,12 +348,25 @@ export function makeGroups(seeds: string[]): string[][] {
   return groups;
 }
 
-export function formatError(format: Format, n: number): string | null {
-  if (n < MIN_PLAYERS) return `Il faut au moins ${MIN_PLAYERS} joueurs.`;
+export const MIN_DUOS = 3;
+
+/** n = nombre de joueurs (personnes). En 2v2, il en faut un nombre pair. */
+export function formatError(format: Format, n: number, mode: Tournament['mode'] = '1v1'): string | null {
   if (n > MAX_PLAYERS) return `${MAX_PLAYERS} joueurs maximum.`;
+  if (mode === '2v2') {
+    if (n % 2) return 'Il faut un nombre pair de joueurs pour former les duos.';
+    const duos = n / 2;
+    if (duos < MIN_DUOS) return `Il faut au moins ${MIN_DUOS} duos (${MIN_DUOS * 2} joueurs).`;
+    if (format === 'groups' && duos < MIN_PLAYERS_GROUPS) return `Le format groupes demande au moins ${MIN_PLAYERS_GROUPS} duos (${MIN_PLAYERS_GROUPS * 2} joueurs).`;
+    return null;
+  }
+  if (n < MIN_PLAYERS) return `Il faut au moins ${MIN_PLAYERS} joueurs.`;
   if (format === 'groups' && n < MIN_PLAYERS_GROUPS) return `Le format groupes demande au moins ${MIN_PLAYERS_GROUPS} joueurs.`;
   return null;
 }
+
+/** Nombre d'équipes dans le tableau : joueurs en 1v1, duos complets en 2v2. */
+export const entrantsCount = (n: number, mode: Tournament['mode'] = '1v1') => (mode === '2v2' ? Math.floor(n / 2) : n);
 
 /** Nombre de matchs réellement joués (sans exemptions), revanche éventuelle de double élimination exclue. */
 export function estimateMatches(format: Format, n: number): number {
@@ -404,7 +417,7 @@ export interface RankRow {
 }
 
 export function ranking(t: Tournament, res: Resolved): RankRow[] {
-  const ids = t.players.map((p) => p.id);
+  const ids = participants(t).map((p) => p.id);
   const stats = new Map(standings(ids, res.matches).map((s) => [s.id, s]));
 
   if (t.format === 'league') {
@@ -536,4 +549,33 @@ export function estimateSlots(format: Format, n: number, consoles: number): numb
     slots++;
   }
   return slots;
+}
+
+/* ---------------------------------------------------------- 2 contre 2 */
+
+export const isDuoMode = (t: Pick<Tournament, 'mode'>) => t.mode === '2v2';
+
+export const duoId = (a: string, b: string) => `d_${[a, b].sort().join('_')}`;
+
+/** Duos formés dans l'ordre de la liste (1+2, 3+4…), en gardant le club d'un duo inchangé. Un joueur seul en fin de liste n'a pas de duo. */
+export function buildDuos(players: Player[], previous: Duo[] = []): Duo[] {
+  const teams = new Map(previous.map((d) => [d.id, d.team]));
+  const duos: Duo[] = [];
+  for (let i = 0; i + 1 < players.length; i += 2) {
+    const id = duoId(players[i].id, players[i + 1].id);
+    const team = teams.get(id);
+    duos.push(team ? { id, a: players[i].id, b: players[i + 1].id, team } : { id, a: players[i].id, b: players[i + 1].id });
+  }
+  return duos;
+}
+
+/** Ce qui s'affronte dans le tableau : les joueurs en 1v1, les duos en 2v2. */
+export function participants(t: Pick<Tournament, 'mode' | 'players' | 'duos'>): Participant[] {
+  if (!isDuoMode(t)) return t.players;
+  const byId = new Map(t.players.map((p) => [p.id, p]));
+  return (t.duos ?? []).map((d) => {
+    const out: Participant = { id: d.id, name: `${byId.get(d.a)?.name ?? '?'} & ${byId.get(d.b)?.name ?? '?'}`, members: [d.a, d.b] };
+    if (d.team) out.team = d.team;
+    return out;
+  });
 }

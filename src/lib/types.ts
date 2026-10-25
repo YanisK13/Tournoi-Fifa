@@ -1,5 +1,24 @@
 export type Format = 'single' | 'double' | 'league' | 'groups';
 
+/** 1v1 : chaque joueur joue seul · 2v2 : les joueurs sont regroupés en duos, ce sont les duos qui s'affrontent. */
+export type Mode = '1v1' | '2v2';
+
+export interface Duo {
+  /** Identifiant tiré des deux membres (même duo = même identifiant, quel que soit l'ordre). */
+  id: string;
+  a: string;
+  b: string;
+  team?: Team;
+}
+
+/** Ce qui s'affronte dans le tableau : un joueur (1v1) ou un duo (2v2). */
+export interface Participant {
+  id: string;
+  name: string;
+  team?: Team;
+  members?: [string, string];
+}
+
 export interface Team {
   name: string;
   /** Logo du club (https), absent si on utilise l'écusson généré. */
@@ -66,6 +85,10 @@ export interface Tournament {
   groups: string[][];
   results: Record<string, MatchResult>;
   createdAt: number;
+  /** 1v1 par défaut. */
+  mode?: Mode;
+  /** 2v2 uniquement : les duos, formés à partir de l'ordre des joueurs (1+2, 3+4…). */
+  duos?: Duo[];
   /** Nombre de consoles disponibles (1 par défaut). */
   consoles?: number;
   /** Match en cours sur chaque console : id du match → numéro de console (1, 2…). */

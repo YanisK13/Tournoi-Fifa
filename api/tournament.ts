@@ -211,7 +211,7 @@ export function tcpRedisStore(url: string): Store {
 
 /* ------------------------------------------------------------ droits */
 
-type T = { players?: { id: string; name: string }[]; results?: unknown; live?: unknown };
+type T = { players?: { id: string; name: string }[]; duos?: { id: string; a: string; b: string }[]; results?: unknown; live?: unknown };
 
 /** JSON avec les clés triées : deux objets égaux donnent la même chaîne. */
 function canonical(x: unknown): string {
@@ -225,7 +225,12 @@ function canonical(x: unknown): string {
 
 /** Ce qu'un participant sans clé n'a pas le droit de modifier. */
 function protectedPart(t: T): unknown {
-  return { ...t, results: undefined, live: undefined, players: (t.players ?? []).map((p) => ({ id: p.id, name: p.name })) };
+  return {
+    ...t, results: undefined, live: undefined,
+    players: (t.players ?? []).map((p) => ({ id: p.id, name: p.name })),
+    // 2v2 : la composition des duos est protégée, leur club non.
+    duos: t.duos ? t.duos.map((d) => ({ id: d.id, a: d.a, b: d.b })) : undefined,
+  };
 }
 
 /** Vrai si le changement ne touche que les scores, les consoles et les clubs. */

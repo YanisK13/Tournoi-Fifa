@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { consoleCount, estimateMatches, estimateSlots, formatDuration, formatError, maxUsefulConsoles } from '../lib/engine';
+import { consoleCount, duoId, entrantsCount, estimateMatches, estimateSlots, formatDuration, formatError, isDuoMode, maxUsefulConsoles, MIN_DUOS, participants } from '../lib/engine';
 import type { Action } from '../lib/store';
-import type { Format, Tournament } from '../lib/types';
+import type { Format, Mode, Player, Tournament } from '../lib/types';
 import { MAX_PLAYERS, MIN_PLAYERS, MIN_PLAYERS_GROUPS, MAX_CONSOLES } from '../lib/types';
 import { Crest, TeamPicker } from './Crest';
 import { FORMATS, formatLabel } from './ctx';
@@ -36,7 +36,7 @@ export function Home({ onCreate }: { onCreate: () => void }) {
 
 /* ------------------------------------------------------------ paramètres (création + édition) */
 
-interface FormValues { name: string; game: string; format: Format; matchMinutes: number; count: number; consoles: number }
+interface FormValues { name: string; game: string; format: Format; matchMinutes: number; count: number; consoles: number; mode: Mode }
 
 export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, onCancel }: {
   initial?: Partial<FormValues>;
@@ -50,23 +50,33 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
   const game = initial?.game ?? DEFAULT_GAME;
   const [format, setFormat] = useState<Format>(initial?.format ?? 'single');
   const matchMinutes = MATCH_MINUTES;
+  const [mode, setMode] = useState<Mode>(initial?.mode ?? '1v1');
   const [count, setCount] = useState(initial?.count ?? 8);
   const [consoles, setConsoles] = useState(initial?.consoles ?? 1);
   const [error, setError] = useState<string | null>(null);
+  const duo = mode === '2v2';
+
+  const chooseMode = (m: Mode) => {
+    setMode(m);
+    setError(null);
+    // En 2v2 : nombre pair et au moins 3 duos.
+    if (m === '2v2' && playerCount === undefined) setCount((c) => Math.min(MAX_PLAYERS, Math.max(MIN_DUOS * 2, c + (c % 2))));
+  };
 
   const n = playerCount ?? count;
-  const maxConsoles = Math.min(MAX_CONSOLES, maxUsefulConsoles(n));
+  const entrants = entrantsCount(n, mode);
+  const maxConsoles = Math.min(MAX_CONSOLES, maxUsefulConsoles(entrants));
   const usedConsoles = Math.min(consoles, maxConsoles);
-  const matches = useMemo(() => estimateMatches(format, Math.max(n, 2)), [format, n]);
-  const slots = useMemo(() => estimateSlots(format, Math.max(n, 2), usedConsoles), [format, n, usedConsoles]);
-  const fmtErr = formatError(format, n);
+  const matches = useMemo(() => estimateMatches(format, Math.max(entrants, 2)), [format, entrants]);
+  const slots = useMemo(() => estimateSlots(format, Math.max(entrants, 2), usedConsoles), [format, entrants, usedConsoles]);
+  const fmtErr = formatError(format, n, mode);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const clean = name.trim() || 'Soirée FC';
     if (clean.length > 40) return setError('Le nom doit faire 40 caractères maximum.');
     if (playerCount === undefined && fmtErr) return setError(fmtErr);
-    onSubmit({ name: clean, game: game.trim() || DEFAULT_GAME, format, matchMinutes, count, consoles: usedConsoles });
+    onSubmit({ name: clean, game: game.trim() || DEFAULT_GAME, format, matchMinutes, count, consoles: usedConsoles, mode });
   };
 
   return (
@@ -77,15 +87,24 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
       </label>
 
       <fieldset className="field">
+        <legend>Mode de jeu</legend>
+        <div className="seg big" role="radiogroup" aria-label="Mode de jeu">
+          <button type="button" role="radio" aria-checked={!duo} className={!duo ? 'on' : ''} onClick={() => chooseMode('1v1')}>1 contre 1</button>
+          <button type="button" role="radio" aria-checked={duo} className={duo ? 'on' : ''} onClick={() => chooseMode('2v2')}>2 contre 2</button>
+        </div>
+        {duo && <small className="mode-hint">Les joueurs jouent en duos. Tu composes les duos (ou tu les tires au sort) à l’étape suivante.</small>}
+      </fieldset>
+
+      <fieldset className="field">
         <legend>Format</legend>
         <div className="format-grid">
           {FORMATS.map((f) => {
-            const disabled = f.id === 'groups' && n < MIN_PLAYERS_GROUPS;
+            const disabled = f.id === 'groups' && entrants < MIN_PLAYERS_GROUPS;
             return (
               <button type="button" key={f.id} className={`format-card ${format === f.id ? 'on' : ''}`} aria-pressed={format === f.id}
                 onClick={() => { setFormat(f.id); setError(null); }}>
                 <strong>{f.label}{f.id === 'single' && <i className="tag">Par défaut</i>}</strong>
-                <small>{disabled ? `${MIN_PLAYERS_GROUPS} joueurs minimum` : f.desc}</small>
+                <small>{disabled ? `${MIN_PLAYERS_GROUPS} ${duo ? 'duos' : 'joueurs'} minimum` : f.desc}</small>
               </button>
             );
           })}
@@ -94,8 +113,9 @@ export function TournamentForm({ initial, playerCount, submitLabel, onSubmit, on
 
       {playerCount === undefined && (
         <div className="field row">
-          <span>Participants <small className="muted">({MIN_PLAYERS} à {MAX_PLAYERS})</small></span>
-          <Stepper value={count} min={MIN_PLAYERS} max={MAX_PLAYERS} onChange={(v) => { setCount(v); setError(null); }} label="Nombre de participants" />
+          <span>{duo ? <>Joueurs <small className="muted">(= {entrants} duos)</small></> : <>Participants <small className="muted">({MIN_PLAYERS} à {MAX_PLAYERS})</small></>}</span>
+          <Stepper value={count} min={duo ? MIN_DUOS * 2 : MIN_PLAYERS} max={MAX_PLAYERS} step={duo ? 2 : 1}
+            onChange={(v) => { setCount(v); setError(null); }} label="Nombre de participants" />
         </div>
       )}
 
@@ -161,14 +181,25 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
   const [editVal, setEditVal] = useState('');
   const [editErr, setEditErr] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
-  const pickingPlayer = t.players.find((p) => p.id === picking);
+  const duo = isDuoMode(t);
+  // Joueur (1v1) ou duo (2v2) dont on choisit le club.
+  const pickingPlayer = participants(t).find((p) => p.id === picking);
+  const [swapSel, setSwapSel] = useState<string | null>(null);
   const addRef = useRef<HTMLInputElement>(null);
   const running = t.status === 'running';
   const n = t.players.length;
-  const fmtErr = formatError(t.format, n);
-  const consoles = Math.min(consoleCount(t), maxUsefulConsoles(n));
-  const matches = useMemo(() => estimateMatches(t.format, Math.max(n, 2)), [t.format, n]);
-  const slots = useMemo(() => estimateSlots(t.format, Math.max(n, 2), consoles), [t.format, n, consoles]);
+  const entrants = entrantsCount(n, t.mode);
+  const fmtErr = formatError(t.format, n, t.mode);
+  const consoles = Math.min(consoleCount(t), maxUsefulConsoles(entrants));
+  const matches = useMemo(() => estimateMatches(t.format, Math.max(entrants, 2)), [t.format, entrants]);
+  const slots = useMemo(() => estimateSlots(t.format, Math.max(entrants, 2), consoles), [t.format, entrants, consoles]);
+  const canSwap = duo && canManage && !running;
+
+  const swap = (id: string) => {
+    if (!swapSel) return setSwapSel(id);
+    if (swapSel !== id) dispatch({ type: 'swapPlayers', a: swapSel, b: id });
+    setSwapSel(null);
+  };
 
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -202,42 +233,12 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
     dispatch({ type: 'removePlayer', id });
   };
 
-  const draw = () => {
-    if (fmtErr) return;
-    dispatch({ type: 'draw' });
-  };
-
-  return (
-    <main className="screen">
-      <header className="topbar">
-        {onBack && <button className="icon-btn" onClick={onBack} aria-label="Retour"><Icon name="back" /></button>}
-        <div className="topbar-title stack">
-          <h1>{running ? 'Joueurs' : t.name}</h1>
-          {!running && <small>{badge}{formatLabel(t.format)}</small>}
-        </div>
-        {!running && onShare && <button className="icon-btn" onClick={onShare} aria-label="Partager"><Icon name="share" /></button>}
-        {!running && canManage && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
-        {!running && <button className="icon-btn" onClick={onMenu} aria-label="Plus d’actions"><Icon name="dots" /></button>}
-      </header>
-
-      <div className="section-head">
-        <h2>Joueurs <span className={`count ${n < MIN_PLAYERS ? 'warn' : ''}`}>{n}/{MAX_PLAYERS}</span></h2>
-        {running && canManage && <p className="muted">Renommer un joueur ne change rien au tournoi.</p>}
-        {!canManage && <p className="muted">Choisis ton club en touchant le + à côté de ton nom. L’organisateur gère la liste et le tirage.</p>}
-        {!running && shared && onShare && canManage && (
-          <button className="invite" onClick={onShare}><Icon name="share" size={18} />Envoie le lien sur WhatsApp : chacun pourra suivre et saisir les scores.</button>
-        )}
-      </div>
-
-      {n === 0 && canManage && <p className="empty">Aucun joueur pour l’instant. Ajoute au moins {MIN_PLAYERS} prénoms ou pseudos.</p>}
-
-      <ul className="player-list">
-        {t.players.map((p, i) => (
-          <li key={p.id} className="player-row">
+  const personRow = (p: Player, i: number, inDuo: boolean) => (
+    <li key={p.id} className={`player-row ${swapSel === p.id ? 'swap-on' : ''}`}>
             <span className="player-num">{i + 1}</span>
-            <button className={`crest-btn ${p.team ? '' : 'empty'}`} onClick={() => setPicking(p.id)} aria-label={p.team ? `Changer le club de ${p.name} (${p.team.name})` : `Choisir le club de ${p.name}`}>
+            {!inDuo && <button className={`crest-btn ${p.team ? '' : 'empty'}`} onClick={() => setPicking(p.id)} aria-label={p.team ? `Changer le club de ${p.name} (${p.team.name})` : `Choisir le club de ${p.name}`}>
               {p.team ? <Crest team={p.team} size={34} /> : <Icon name="plus" size={18} />}
-            </button>
+            </button>}
             {editing === p.id ? (
               <form className="player-edit" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
                 <input autoFocus value={editVal} maxLength={20} onChange={(e) => { setEditVal(e.target.value); setEditErr(null); }}
@@ -250,20 +251,92 @@ export function PlayersScreen({ t, dispatch, onSettings, onMenu, onBack, onShare
               <>
                 <button className="player-name" onClick={() => startEdit(p.id, p.name)} aria-label={`Renommer ${p.name}`}>
                   {p.name}
-                  <small className={p.team ? '' : 'add-club'}>{p.team ? p.team.name : 'Choisir son club'}</small>
+                  {!inDuo && <small className={p.team ? '' : 'add-club'}>{p.team ? p.team.name : 'Choisir son club'}</small>}
                 </button>
+                {canSwap && <button className={`icon-btn swap ${swapSel === p.id ? 'on' : ''}`} onClick={() => swap(p.id)}
+                  aria-label={swapSel && swapSel !== p.id ? `Échanger avec ${p.name}` : `Changer ${p.name} de duo`}><Icon name="shuffle" size={18} /></button>}
                 <button className="icon-btn" onClick={() => startEdit(p.id, p.name)} aria-label={`Modifier ${p.name}`}><Icon name="edit" size={18} /></button>
                 <button className="icon-btn danger" onClick={() => remove(p.id, p.name)} aria-label={`Supprimer ${p.name}`}><Icon name="trash" size={18} /></button>
               </>
+            ) : inDuo ? (
+              <span className="player-name">{p.name}</span>
             ) : (
               <button className="player-name" onClick={() => setPicking(p.id)} aria-label={`Choisir le club de ${p.name}`}>
                 {p.name}
                 <small className={p.team ? '' : 'add-club'}>{p.team ? p.team.name : 'Choisir son club'}</small>
               </button>
             )}
-          </li>
-        ))}
-      </ul>
+    </li>
+  );
+
+  const draw = () => {
+    if (fmtErr) return;
+    dispatch({ type: 'draw' });
+  };
+
+  return (
+    <main className="screen">
+      <header className="topbar">
+        {onBack && <button className="icon-btn" onClick={onBack} aria-label="Retour"><Icon name="back" /></button>}
+        <div className="topbar-title stack">
+          <h1>{running ? 'Joueurs' : t.name}</h1>
+          {!running && <small>{badge}{duo ? '2 contre 2 · ' : ''}{formatLabel(t.format)}</small>}
+        </div>
+        {!running && onShare && <button className="icon-btn" onClick={onShare} aria-label="Partager"><Icon name="share" /></button>}
+        {!running && canManage && <button className="icon-btn" onClick={onSettings} aria-label="Paramètres du tournoi"><Icon name="settings" /></button>}
+        {!running && <button className="icon-btn" onClick={onMenu} aria-label="Plus d’actions"><Icon name="dots" /></button>}
+      </header>
+
+      <div className="section-head">
+        <h2>{duo ? 'Duos' : 'Joueurs'} <span className={`count ${fmtErr && !running ? 'warn' : ''}`}>{duo ? `${entrants} duos · ${n} joueurs` : `${n}/${MAX_PLAYERS}`}</span></h2>
+        {running && canManage && <p className="muted">Renommer un joueur ne change rien au tournoi.</p>}
+        {!canManage && <p className="muted">Choisis ton club en touchant le + à côté de {duo ? 'ton duo' : 'ton nom'}. L’organisateur gère la liste{duo ? ', les duos' : ''} et le tirage.</p>}
+        {!running && shared && onShare && canManage && (
+          <button className="invite" onClick={onShare}><Icon name="share" size={18} />Envoie le lien sur WhatsApp : chacun pourra suivre et saisir les scores.</button>
+        )}
+      </div>
+
+      {n === 0 && canManage && <p className="empty">Aucun joueur pour l’instant. Ajoute au moins {MIN_PLAYERS} prénoms ou pseudos.</p>}
+
+      {!duo && <ul className="player-list">{t.players.map((p, i) => personRow(p, i, false))}</ul>}
+
+      {duo && (
+        <>
+          {canSwap && n >= 4 && (
+            <div className="duo-tools">
+              <button className="btn ghost" onClick={() => { setSwapSel(null); dispatch({ type: 'shuffleDuos' }); }}><Icon name="shuffle" size={18} />Duos au hasard</button>
+              <small>{swapSel ? 'Touche ⇄ sur un autre joueur pour les échanger.' : 'Pour composer les duos à la main, touche ⇄ sur deux joueurs.'}</small>
+            </div>
+          )}
+          <div className="duo-list">
+            {Array.from({ length: Math.ceil(n / 2) }, (_, k) => {
+              const a = t.players[2 * k];
+              const b = t.players[2 * k + 1];
+              const d = b ? (t.duos ?? []).find((x) => x.id === duoId(a.id, b.id)) : undefined;
+              return (
+                <section key={a.id} className={`duo-card ${b ? '' : 'alone'}`}>
+                  <header>
+                    {d ? (
+                      <button className={`crest-btn ${d.team ? '' : 'empty'}`} onClick={() => setPicking(d.id)}
+                        aria-label={d.team ? `Changer le club du duo ${k + 1} (${d.team.name})` : `Choisir le club du duo ${k + 1}`}>
+                        {d.team ? <Crest team={d.team} size={34} /> : <Icon name="plus" size={18} />}
+                      </button>
+                    ) : <span className="crest-btn empty" aria-hidden="true">?</span>}
+                    <span className="duo-title">
+                      <b>{b ? `Duo ${k + 1}` : 'En attente d’un partenaire'}</b>
+                      <small className={d?.team ? '' : 'add-club'}>{d ? (d.team ? d.team.name : 'Choisir le club du duo') : 'Ajoute un joueur pour compléter ce duo'}</small>
+                    </span>
+                  </header>
+                  <ul className="player-list">
+                    {personRow(a, 2 * k, true)}
+                    {b && personRow(b, 2 * k + 1, true)}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {!running && canManage && (
         <form className="add-player" onSubmit={add}>

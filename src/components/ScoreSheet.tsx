@@ -82,7 +82,7 @@ export function ScoreSheet({ match, onClose }: { match: RMatch; onClose: () => v
   };
 
   const hint = !bothSet
-    ? 'Saisis le score des deux joueurs.'
+    ? `Saisis le score des deux ${t.mode === '2v2' ? 'duos' : 'joueurs'}.`
     : needsWinner && !tieWinner
       ? 'Égalité : qui gagne après prolongations ou tirs au but ?'
       : null;
